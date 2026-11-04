@@ -1,0 +1,7 @@
+.Rhistory
+.RData
+.Rproj.user/
+.DS_Store
+# generated data/outputs are reproducible from the scripts
+data/demand.csv
+outputs/
