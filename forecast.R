@@ -3,8 +3,12 @@
 # Weekly demand forecasting in R using the `forecast` package.
 #
 # Fits two models on a training window and backtests them on a 26-week holdout:
-#   1. auto.arima() — automatic ARIMA order selection
-#   2. ets()        — exponential smoothing state-space model
+#   1. auto.arima() — automatic ARIMA order selection (seasonal ARIMA)
+#   2. stlf()       — STL decomposition + exponential smoothing. stlf is used
+#                     instead of a plain ets() because ets() cannot model
+#                     seasonality for high-frequency (weekly, freq=52) series;
+#                     stlf decomposes out the seasonality first, so the seasonal
+#                     signal is actually used.
 # Both are compared against a seasonal-naive baseline (snaive), and evaluated on
 # MAPE and RMSE — the metrics demand planners track.
 #
@@ -27,10 +31,12 @@ test  <- tail(y, h)
 
 # ---- Fit models on the training window ----
 fit_arima <- auto.arima(train)
-fit_ets   <- ets(train)
+fc_arima  <- forecast(fit_arima, h = h)
 
-fc_arima <- forecast(fit_arima, h = h)
-fc_ets   <- forecast(fit_ets,   h = h)
+# STL + ETS: decomposes the weekly seasonality out, fits ETS on the
+# seasonally-adjusted series, then re-applies the seasonal component.
+fc_stlf   <- stlf(train, h = h)
+
 fc_snaive <- snaive(train, h = h)     # seasonal-naive baseline
 
 # ---- Metrics (MAPE, RMSE) on the holdout ----
@@ -43,7 +49,7 @@ score <- function(actual, pred) {
 
 results <- rbind(
   `auto.arima`     = score(test, fc_arima$mean),
-  `ets`            = score(test, fc_ets$mean),
+  `stl+ets`        = score(test, fc_stlf$mean),
   `seasonal-naive` = score(test, fc_snaive$mean)
 )
 
